@@ -41,6 +41,7 @@
     "write-file-webpack-plugin": "^4.5.1"
   },
   "dependencies": {
-    "ljsy": "^1.0.5"
+    "ljsy": "^1.0.5",
+    "siema": "^1.5.1"
   }
 }

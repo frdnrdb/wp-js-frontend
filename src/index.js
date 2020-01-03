@@ -1,10 +1,10 @@
 import './scss/index.scss';
-import { qs, create, ac,rc } from 'ljsy';
+import Siema from 'siema';
+import { qs, qsa, create, ac,rc } from 'ljsy';
 import { wp } from './wp';
 import icons from './icons';
 
 const root = qs('#root');
-
 const _sections = {};
 
 const templates = {
@@ -43,6 +43,7 @@ const handlers = {
     },
     posts: dataset => {
         wp.getSinglePost(dataset.id);
+        location.hash = `id=${dataset.id}`;
         ac('minimize', _sections.header);
         window.scrollTo(0, 0);
     },
@@ -63,6 +64,12 @@ const createSection = (type, innerHTML = '') =>  _sections[type] = create('secti
     }
 });
 
+const buildGallery = (container, i) => {
+    const id = `gallery-${i}`;
+    container.id = id;
+    new Siema({ selector: `#${id}` });
+};
+
 createSection('overlay', 'Laster...');
 createSection('header', `
     <div class="fixed top">Beskrivende tekst her</div>
@@ -79,11 +86,15 @@ wp.listen(({ type, items }) => {
     const container = _sections[type] || createSection(type);
     requestAnimationFrame(() => {
         items.length && (container.innerHTML = templates[type](items));
+        type === 'singlePost' && qsa(['.gallery']).forEach(buildGallery);
         rc('initial-load');
     });
 });
 
-wp.getPosts(6);
+wp.getPosts(6).then(() => {
+    const [ id ] = (location.hash.match(/id=(\d+)/) || [])[1];
+    id && handlers.posts({ id });
+});
 
 (function resetScroll() {
     scrollTo(0, 0);
