@@ -17,7 +17,7 @@ module.exports = (env = {}) => {
             script: path.join(__dirname, 'src', 'index.js')
         },
         output: {
-            path: path.join(__dirname, 'dist'),
+            path: path.join(__dirname, 'public'),
             filename: '[name].bundle.js'
         },
         module: {
@@ -66,7 +66,7 @@ module.exports = (env = {}) => {
                     ]
                 }
             }),
-            new CleanWebpackPlugin(['dist']),
+            new CleanWebpackPlugin(['public']),
             new HtmlWebpackPlugin({
                 template: path.join(__dirname, 'src', 'index.html'),
                 filename: 'index.html',
