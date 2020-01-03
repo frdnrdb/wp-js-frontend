@@ -13,7 +13,7 @@ export const wp = {
 
     request(url) {
         ac(['loading', this.type]);
-        fetch(url).then(res => res.json()).then(json => {
+        return fetch(url).then(res => res.json()).then(json => {
             if (this.type === 'posts' && !json.length) {
                 this.loadedPosts = 0;
                 return this.getPosts();
@@ -23,10 +23,10 @@ export const wp = {
         });
     },
 
-    getPosts(count) {
+    async getPosts(count) {
         this.type = 'posts';
         if (count) this.perPage = count;
-        this.request(`${this.wpJsonUrl}posts?offset=${this.loadedPosts}&per_page=${this.perPage}&_embed`);
+        await this.request(`${this.wpJsonUrl}posts?offset=${this.loadedPosts}&per_page=${this.perPage}&_embed`);
         this.loadedPosts += this.perPage;
     },
 

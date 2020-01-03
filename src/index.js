@@ -47,7 +47,9 @@ const handlers = {
         window.scrollTo(0, 0);
     },
     loadMore: () => {
-        wp.getPosts();
+        wp.getPosts().then(() => {
+            scrollTo(0, _sections.posts.offsetTop - 20);
+        });
     }
 };
 
