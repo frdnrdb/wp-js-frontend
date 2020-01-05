@@ -2,7 +2,7 @@ import './scss/index.scss';
 import Siema from 'siema';
 import { wp } from './wp';
 import { API_HOST } from './config';
-import { isDesktop, qs, qsa, create, ac, rc, tc, is, state } from 'ljsy';
+import { isDesktop, qs, qsa, create, ac, rc, tc } from 'ljsy';
 import icons from './icons';
 
 const root = qs('#root');
@@ -31,7 +31,7 @@ const templates = {
             </div>
             <p>${o.content}</p>
             <aside>
-                <dl>${o.categories ? o.categories.concat(o.tags).map(l => `<dd class="${l.type}"><a href="${l.link}">${l.name}</a></dd>`).join('') : ''}</dl>
+                <dl>${o.terms.map(l => `<dd class="${l.type}"><a href="${l.link}">${l.name}</a></dd>`).join('')}</dl>
             </aside>
         </article>
     `).join(''),
@@ -43,33 +43,32 @@ const templates = {
     `).join('')}</div>`
 };
 
+const toggleHeader = on => {
+    document.body.classList[on ? 'add' : 'remove']('sticky-header');
+    window.scrollTo(0, 0);    
+}
+
 const handlers = {
     header: () => {
         _sections.singlePost.innerHTML = '';
         location.hash = '';
-        rc('sticky-header');
-        state.isSinglePost = false;
-        window.scrollTo(0, 0);
+        toggleHeader();
     },
     posts: dataset => {
         wp.getSinglePost(dataset.id);
         location.hash = `id=${dataset.id}`;
-        ac('sticky-header');
-        state.isSinglePost = true;
-        window.scrollTo(0, 0);
+        toggleHeader(true);
     },
     loadMore: () => {
         wp.getPosts().then(() => {
-            scrollTo(0, _sections.posts.offsetTop - 20);
+            scrollTo(0, _sections.posts.offsetTop - 100);
         });
     },
     categories: dataset => {
         tc('active', _sections.categories);
 
         if (dataset.type === 'page') {
-            ac('sticky-header');
-            state.isSinglePost = true;
-            window.scrollTo(0, 0);
+            toggleHeader(true);
             return wp.getPage(dataset.id);
         }
 
@@ -77,7 +76,6 @@ const handlers = {
             wp.getCategory(dataset.id).then(() => {
                 _sections.singlePost.innerHTML = '';
                 location.hash = '';
-                state.isSinglePost = false;
                 scrollTo(0, _sections.posts.offsetTop - 100);
             });
         }
@@ -143,14 +141,6 @@ wp.getPosts().then(() => {
     id && handlers.posts({ id });
 });
 
-/*
-window.onscroll = () => {
-    if (state.isSinglePost) return;
-    is('sticky-header')
-        ? scrollY <= 0 && rc('sticky-header')
-        : scrollY > 0 && ac('sticky-header');
-};
-*/
 (function resetScroll() {
     scrollTo(0, 0);
     window.onbeforeunload = resetScroll;

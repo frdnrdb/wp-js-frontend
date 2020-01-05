@@ -104,11 +104,11 @@ export const wp = {
                 o.since = since(o.modified);
 
                 const props = ['categories', 'tags'];
-                Object.assign(o, (getProp(o, '_embedded.wp:term') || []).reduce((terms, arr) => {
+                o.terms = (getProp(o, '_embedded.wp:term') || []).reduce((terms, arr) => {
                     const type = props.shift();
-                    terms[type] = arr.map(({ name, link }) => ({ name, link, type }));
+                    arr.forEach(({ name, link }) => terms.push({ name, link, type }));
                     return terms;
-                }, {}));
+                }, []);
 
                 // fix markup
                 o.content = this.fixMarkup(o.content);
