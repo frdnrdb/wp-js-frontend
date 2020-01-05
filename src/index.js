@@ -1,10 +1,12 @@
 import './scss/index.scss';
 import Siema from 'siema';
-import { qs, qsa, create, ac,rc } from 'ljsy';
 import { wp } from './wp';
+import { API_HOST } from './config';
+import { isDesktop, qs, qsa, create, ac, rc, tc, is, state } from 'ljsy';
 import icons from './icons';
 
 const root = qs('#root');
+isDesktop && ac('desktop', root);
 const _sections = {};
 
 const templates = {
@@ -12,7 +14,7 @@ const templates = {
         <article data-id="${o.id}">
             <div class="image" style="background-image:url(${o.image});"></div>
             <h3>${o.title}</h3>
-            <!--<p>${o.excerpt}</p>-->
+            <p>${o.excerpt}</p>
             <footer>
                 <div class="byline"><time>${o.since} siden</time></div>
             </footer>
@@ -21,7 +23,7 @@ const templates = {
 
     singlePost: items => items.map(o => `
         <article data-id="${o.id}" data-link="${o.link}">
-            <div class="image" style="background-image:url(${o.image.replace(/\?.*$/, '')});">
+            <div class="image ${o.type}" style="background-image:url(${o.image.replace(/\?.*$/, '')});">
                 <h3>${o.title}</h3>
                 <footer>
                     <div class="byline"><span class="author">${o.author.name}</span><time>${o.since} siden</time></div>
@@ -29,28 +31,56 @@ const templates = {
             </div>
             <p>${o.content}</p>
             <aside>
-                <dl>${o.categories.concat(o.tags).map(l => `<dd class="${l.type}"><a href="${l.link}">${l.name}</a></dd>`).join('')}</dl>
+                <dl>${o.categories ? o.categories.concat(o.tags).map(l => `<dd class="${l.type}"><a href="${l.link}">${l.name}</a></dd>`).join('') : ''}</dl>
             </aside>
         </article>
-    `).join('')
+    `).join(''),
+
+    categories: items => `<span data-menu="1">MENY</span><div>${items.map(o => `
+        <div data-id="${o.id}" data-type="${o.type}">
+            ${o.name}
+        </div>
+    `).join('')}</div>`
 };
 
 const handlers = {
     header: () => {
         _sections.singlePost.innerHTML = '';
-        rc('minimize', _sections.header);
+        location.hash = '';
+        rc('sticky-header');
+        state.isSinglePost = false;
         window.scrollTo(0, 0);
     },
     posts: dataset => {
         wp.getSinglePost(dataset.id);
         location.hash = `id=${dataset.id}`;
-        ac('minimize', _sections.header);
+        ac('sticky-header');
+        state.isSinglePost = true;
         window.scrollTo(0, 0);
     },
     loadMore: () => {
         wp.getPosts().then(() => {
             scrollTo(0, _sections.posts.offsetTop - 20);
         });
+    },
+    categories: dataset => {
+        tc('active', _sections.categories);
+
+        if (dataset.type === 'page') {
+            ac('sticky-header');
+            state.isSinglePost = true;
+            window.scrollTo(0, 0);
+            return wp.getPage(dataset.id);
+        }
+
+        if (dataset.id) {
+            wp.getCategory(dataset.id).then(() => {
+                _sections.singlePost.innerHTML = '';
+                location.hash = '';
+                state.isSinglePost = false;
+                scrollTo(0, _sections.posts.offsetTop - 100);
+            });
+        }
     }
 };
 
@@ -72,30 +102,55 @@ const buildGallery = (container, i) => {
 
 createSection('overlay', 'Laster...');
 createSection('header', `
-    <div class="fixed top">Beskrivende tekst her</div>
-    <div class="logo"><h1>KRAFT</h1>${icons('logoShape')}</div>
-    <div class="fixed bottom">${icons('chevronDown')}Les magasin</div>
+    <div class="fixed topleft">${icons('logo')}</div>
+    <!--<div class="fixed top">Beskrivende tekst her</div>-->
+    <div class="logo"><h1>KRAFT</h1></div>
+    <!--<div class="fixed bottom">${icons('chevronDown')}Les magasin</div>-->
 `);
+createSection('categories', '`<span>MENY</span>');
 createSection('singlePost');
 createSection('posts');
 createSection('loadMore', '<button>Last flere saker</button>');
 
 ac('initial-load');
 
-wp.listen(({ type, items }) => {
+wp.listen(API_HOST, ({ type, items }) => {
     const container = _sections[type] || createSection(type);
     requestAnimationFrame(() => {
-        items.length && (container.innerHTML = templates[type](items));
-        type === 'singlePost' && qsa(['.gallery']).forEach(buildGallery);
+        if (type === 'categories') {
+            items.push(
+                {
+                    name: 'Om oss',
+                    type: 'page',
+                    id: 703
+                }             
+            );
+        }
+                
+        templates[type] && (container.innerHTML = templates[type](items));
+
+        if (type === 'singlePost') {
+            qsa(['.gallery']).forEach(buildGallery);
+        }
+
         rc('initial-load');
     });
 });
 
-wp.getPosts(6).then(() => {
-    const [ id ] = (location.hash.match(/id=(\d+)/) || [])[1];
+wp.getCategories();
+wp.getPosts().then(() => {
+    const [, id] = location.hash.match(/id=(\d+)/) || [];
     id && handlers.posts({ id });
 });
 
+/*
+window.onscroll = () => {
+    if (state.isSinglePost) return;
+    is('sticky-header')
+        ? scrollY <= 0 && rc('sticky-header')
+        : scrollY > 0 && ac('sticky-header');
+};
+*/
 (function resetScroll() {
     scrollTo(0, 0);
     window.onbeforeunload = resetScroll;

@@ -1,43 +1,53 @@
 import { getProp, ac, rc, since } from 'ljsy';
+import { imageSizes } from './config';
 
 export const wp = {
-    type: '',
+    apiHost: undefined,
+    type: undefined,
     perPage: 6,
     loadedPosts: 0,
-    flattened: {},
-    wpJsonUrl: 'https://public-api.wordpress.com/wp/v2/sites/kraft6.home.blog/',
 
-    listen(callback) {
+    listen(apiHost, callback) {
+        this.apiHost = apiHost;
         this.callback = callback;
     },
 
-    request(url) {
-        ac(['loading', this.type]);
+    request(url, type) {
+        ac(['loading', type]);
         return fetch(url).then(res => res.json()).then(json => {
-            if (this.type === 'posts' && !json.length) {
+            if (type === 'posts' && !json.length) {
                 this.loadedPosts = 0;
                 return this.getPosts();
             }
-            this.callback(this.flatten(json));
-            rc(['loading', this.type]);
+            this.callback(this.flatten(json, type));
+            rc(['loading', type]);
         });
     },
 
     async getPosts(count) {
-        this.type = 'posts';
         if (count) this.perPage = count;
-        await this.request(`${this.wpJsonUrl}posts?offset=${this.loadedPosts}&per_page=${this.perPage}&_embed`);
+        await this.request(
+            `${this.apiHost}posts?offset=${this.loadedPosts}&per_page=${this.perPage}&_embed`,
+            'posts'
+        );
         this.loadedPosts += this.perPage;
     },
+    
+    async getCategory(category) {
+        await this.request(`${this.apiHost}posts?offset=${this.loadedPosts}&per_page=${this.perPage}&_embed&category=${category}`, 'posts')
+        this.loadedPosts += this.perPage;
+    },    
 
     getSinglePost(post_id) {
-        this.type = 'singlePost';
-        this.request(`${this.wpJsonUrl}posts/${post_id}?_embed`);
+        this.request(`${this.apiHost}posts/${post_id}?_embed`, 'singlePost');
     },
 
     getPage(page_id) {
-        this.type = 'page';
-        this.request(`${this.wpJsonUrl}pages/${page_id}?_embed`);
+        this.request(`${this.apiHost}pages/${page_id}?_embed`, 'singlePost');
+    },
+
+    getCategories() {
+        this.request(`${this.apiHost}categories`, 'categories');
     },
 
     getFirstImage(content) {
@@ -63,11 +73,18 @@ export const wp = {
         return fixedHTML;
     },
 
-    flatten(original) {
-        const json = Array.isArray(original) ? original : [ original ];
+    flatten(response, type) {
+        const json = Array.isArray(response) ? response : [ response ];
+
+        if (type === 'categories') {
+            return {
+                type,
+                items: json.map(({ name, link, id }) => ({ name, link, id, type }))
+            };
+        }
 
         return {
-            type: this.type,
+            type,
             items: json.map(o => {
 
                 // remove props
@@ -82,12 +99,12 @@ export const wp = {
                 featuredMedia && (o.features = true);
 
                 // move and simplify embedded props
-                o.image = (featuredMedia || this.getFirstImage(o.content) || '/assets/placeholder.jpg') + '?w=300';
+                o.image = (featuredMedia || this.getFirstImage(o.content) || '/assets/placeholder.jpg') + '?w=' + imageSizes.medium;
                 o.author = getProp(o, '_embedded.author.0');
                 o.since = since(o.modified);
 
                 const props = ['categories', 'tags'];
-                Object.assign(o, getProp(o, '_embedded.wp:term').reduce((terms, arr) => {
+                Object.assign(o, (getProp(o, '_embedded.wp:term') || []).reduce((terms, arr) => {
                     const type = props.shift();
                     terms[type] = arr.map(({ name, link }) => ({ name, link, type }));
                     return terms;
